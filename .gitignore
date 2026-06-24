@@ -12,6 +12,10 @@ npm-debug.log*
 dist/
 dist-test/
 
+# Worktrees used by publishing script
+.gh-pages/
+.deploy-gh-pages/
+
 # Parser cache / temp files
 Data/.build-cache.json
 data/.build-cache.json

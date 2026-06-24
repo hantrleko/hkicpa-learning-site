@@ -13,10 +13,13 @@
     "prepare:deploy:fast": "npm run build:fast && node ./scripts/prepare-deploy-site.js",
     "prepare:deploy:full": "npm run build:full && node ./scripts/prepare-deploy-site.js",
     "prepare:deploy:bootstrap": "npm run build:bootstrap && node ./scripts/prepare-deploy-site.js",
+    "publish:gh-pages": "node ./scripts/publish-gh-pages.js",
     "deploy": "npm run prepare:deploy",
     "deploy:fast": "npm run prepare:deploy:fast",
     "deploy:full": "npm run prepare:deploy:full",
     "deploy:bootstrap": "npm run prepare:deploy:bootstrap",
+    "deploy:gh": "npm run prepare:deploy:bootstrap && npm run publish:gh-pages",
+    "deploy:gh:fast": "npm run prepare:deploy:fast && npm run publish:gh-pages",
     "start": "npx serve . -l 4173",
     "start:dist": "npx serve dist -l 4173"
   },

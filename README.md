@@ -71,6 +71,28 @@ npm run start:dist
 
 建议本机先用 `http://localhost:4173` 查看，避免 `file://` 资源访问限制。
 
+### 3) 站点更新策略（不要每次全量 OCR）
+
+**日常更新（推荐）**
+
+```powershell
+npm run build:fast
+npm run prepare:deploy:fast
+```
+
+`build:fast` 默认关闭 OCR，只走文本提取 + 增量复用。
+只要题库文件没大改，后续通常会很快（取决于新文件数量）。
+
+**首次全量预处理（一次性）**
+
+```powershell
+npm run build:bootstrap
+npm run prepare:deploy:bootstrap
+```
+
+`build:bootstrap` 会尽量把缺失文本的文件补 OCR 前置，适合首次上线或大规模变更前。
+后续更新仍然可用 `build:fast`，一般不需要再重复 OCR。
+
 ## 部署成在线站点（你关机后别人仍能看）
 
 ### 1) 先用公开根链接生成可访问资源 ID
@@ -123,6 +145,29 @@ npm run prepare:deploy:bootstrap
 # 本机校验
 npm run start:dist
 ```
+
+## 一键推送到 GitHub Pages（可选）
+
+如果你已经把 GitHub Pages 源设置到 `gh-pages` 分支，可以直接用：
+
+```powershell
+$env:HKICPA_PUBLIC_ROOT = "https://hantrleko.github.io/hkicpa-learning-site"
+npm run deploy:gh:fast
+```
+
+它会自动完成：
+
+1. 预构建并打包 `dist`
+2. 刷新 `.gh-pages` 工作树
+3. 提交并推送到 `gh-pages` 分支
+
+首次大更新建议用：
+
+```powershell
+npm run deploy:gh
+```
+
+> 注意：仓库里 `gh-pages` 分支是否启用需要在 GitHub Settings → Pages 手动开启一次即可，后续可每次命令更新。
 
 ## 页面功能
 
