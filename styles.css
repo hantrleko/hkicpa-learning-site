@@ -223,6 +223,11 @@ a.btn {
   display: inline-block;
 }
 
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 a.open-btn,
 button.answer-btn {
   color: #fff;
@@ -262,6 +267,33 @@ button.folder-btn {
 
 .question-practice-title {
   margin: 0 0 8px;
+}
+
+.study-summary {
+  margin: 14px 0;
+}
+
+.study-summary .empty {
+  margin: 0;
+}
+
+.study-summary-panel {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+.study-summary-panel h3 {
+  margin: 0 0 8px;
+  font-size: 17px;
+}
+
+.study-summary-panel p {
+  margin: 6px 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
 }
 
 .question-card {

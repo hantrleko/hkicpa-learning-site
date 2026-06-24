@@ -3,11 +3,13 @@ const DATA = window.__HKICPA_STUDY_DATA__ || { resources: [], questions: [] };
 const viewSwitch = document.querySelectorAll(".view-tab");
 const resourcesView = document.getElementById("resources-view");
 const questionsView = document.getElementById("questions-view");
+const studyView = document.getElementById("study-view");
 
 const searchInput = document.getElementById("search");
 const categorySelect = document.getElementById("category");
 const modeSelect = document.getElementById("mode");
 const doctypeSelect = document.getElementById("doctype");
+const resourceModuleSelect = document.getElementById("resource-module");
 const statsEl = document.getElementById("stats");
 const moduleGrid = document.getElementById("module-grid");
 
@@ -23,6 +25,16 @@ const practiceCard = document.getElementById("question-practice");
 const practiceRandomBtn = document.getElementById("random-question");
 const practiceNextBtn = document.getElementById("next-question");
 
+const studyModuleSelect = document.getElementById("study-module");
+const studyAnswerFilter = document.getElementById("study-answer-filter");
+const studyStatsEl = document.getElementById("study-stats");
+const studyQuestionPractice = document.getElementById("study-question-practice");
+const studySummary = document.getElementById("study-summary");
+const studySeqBtn = document.getElementById("study-seq");
+const studyRandomBtn = document.getElementById("study-random");
+const studyPrevBtn = document.getElementById("study-prev");
+const studyNextBtn = document.getElementById("study-next");
+
 const previewModal = document.getElementById("question-preview-modal");
 const previewTitle = document.getElementById("preview-title");
 const previewMeta = document.getElementById("preview-meta");
@@ -34,6 +46,13 @@ const state = {
   currentView: "resources",
   filteredQuestionSeed: [],
   currentPracticeIndex: 0,
+  study: {
+    mode: "sequence",
+    module: "M1",
+    pool: [],
+    order: [],
+    pointer: -1,
+  },
 };
 
 function formatDate(value) {
@@ -106,6 +125,134 @@ function uniqueArray(items) {
   return [...new Set(items)].sort((a, b) => String(a).localeCompare(String(b)));
 }
 
+function normalizeAnswerFilter(value) {
+  if (value === "with-answer" || value === "without-answer") {
+    return value;
+  }
+  return "all";
+}
+
+function formatModuleLabel(module) {
+  const value = String(module || "").trim();
+  const match = value.match(/^M(\d+)$/i);
+  if (!match) {
+    return value || "M1";
+  }
+  return `M${String(Number(match[1])).padStart(2, "0")}`;
+}
+
+const STUDY_STOP_WORDS = new Set([
+  "answer",
+  "answers",
+  "required",
+  "required:",
+  "question",
+  "questions",
+  "required:",
+  "and",
+  "the",
+  "with",
+  "without",
+  "this",
+  "that",
+  "these",
+  "those",
+  "for",
+  "from",
+  "into",
+  "been",
+  "have",
+  "has",
+  "had",
+  "were",
+  "there",
+  "them",
+  "they",
+  "when",
+  "where",
+  "while",
+  "which",
+  "would",
+  "should",
+  "could",
+  "might",
+  "will",
+  "your",
+  "you",
+  "are",
+  "was",
+  "not",
+  "can",
+  "all",
+  "any",
+  "about",
+  "into",
+  "upon",
+  "their",
+  "through",
+  "within",
+  "because",
+  "during",
+  "therefore",
+  "further",
+  "between",
+  "section",
+  "sections",
+  "below",
+  "marks",
+  "mark",
+  "following",
+  "following:",
+  "page",
+  "approximately",
+  "minute",
+  "minutes",
+  "together",
+  "required",
+  "required:",
+  "required.",
+  "required?",
+  "required,",
+  "analysis",
+  "required:",
+]);
+
+const STUDY_PHRASES = [
+  "partnership",
+  "consolidation",
+  "financial statements",
+  "cash flow",
+  "journal entries",
+  "journal entry",
+  "foreign currency",
+  "goodwill",
+  "impairment",
+  "finance lease",
+  "operating lease",
+  "depreciation",
+  "revenue",
+  "investment",
+  "merger",
+  "acquisition",
+  "consolidated",
+  "share-based",
+  "share based",
+  "share incentives",
+  "share option",
+  "provision",
+  "asset",
+  "liability",
+  "equity",
+  "goodwill",
+  "ethical",
+  "fraud",
+  "error",
+  "capital",
+  "inventories",
+  "disclosure",
+  "consolidated financial statements",
+];
+
 function formatAnswerLine(text) {
   return String(text || "")
     .replace(/\r/g, "\n")
@@ -114,6 +261,98 @@ function formatAnswerLine(text) {
 
 function normalizeQuestionMode(mode) {
   return mode === "ocr" ? "OCR" : "文本提取";
+}
+
+function parseModuleQuestions(moduleValue, answerFilterValue = "all") {
+  const target = String(moduleValue || "").trim().toUpperCase();
+  const normalizedFilter = normalizeAnswerFilter(answerFilterValue);
+  return (DATA.questions || []).filter((item) => {
+    if (String(item.module || "").toUpperCase() !== target) {
+      return false;
+    }
+    if (normalizedFilter === "with-answer" && !item.hasAnswer) {
+      return false;
+    }
+    if (normalizedFilter === "without-answer" && item.hasAnswer) {
+      return false;
+    }
+    return true;
+  });
+}
+
+function normalizeKeywordCandidate(sourceText) {
+  return String(sourceText || "")
+    .toLowerCase()
+    .replace(/[-+*/_=|]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function gatherStudyInsights(questions) {
+  const sourceText = questions
+    .map((item) => `${item.prompt || ""} ${item.full || ""} ${item.answer || ""}`)
+    .join(" ")
+    .toLowerCase();
+
+  const stats = new Map();
+  const sentenceCounts = {
+    total: questions.length,
+    withAnswer: questions.filter((q) => q.hasAnswer).length,
+  };
+  const yearCounts = new Map();
+  const sessionCounts = new Map();
+
+  for (const item of questions) {
+    const itemText = `${item.prompt || ""} ${item.full || ""} ${item.answer || ""}`.toLowerCase();
+    const year = Number(item.year) || 0;
+    const session = String(item.session || "未标注");
+    yearCounts.set(year, (yearCounts.get(year) || 0) + 1);
+    sessionCounts.set(session, (sessionCounts.get(session) || 0) + 1);
+
+    for (const phrase of STUDY_PHRASES) {
+      const key = phrase.toLowerCase();
+      if (new RegExp(`\\b${key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(itemText)) {
+        const current = stats.get(key) || 0;
+        stats.set(key, current + 1);
+      }
+    }
+
+    const tokens = normalizeKeywordCandidate(itemText)
+      .split(" ")
+      .map((value) => value.replace(/[^a-z0-9/]/g, "").trim())
+      .filter((value) => value && value.length >= 5)
+      .filter((value) => !STUDY_STOP_WORDS.has(value));
+    for (const token of tokens) {
+      const score = (stats.get(token) || 0) + 1;
+      stats.set(token, score);
+    }
+  }
+
+  for (const match of sourceText.matchAll(/\bhk(?:frs|ias)\s*\d{1,2}(?:\.\d+)?\b/g)) {
+    const key = match[0].toUpperCase().replace(/\s+/g, " ").trim();
+    stats.set(key, (stats.get(key) || 0) + 1);
+  }
+
+  const topKeywords = [...stats.entries()]
+    .sort((a, b) => b[1] - a[1] || String(a[0]).localeCompare(String(b[0])))
+    .map(([word]) => word)
+    .slice(0, 12)
+    .filter(Boolean);
+
+  const byYear = [...yearCounts.entries()]
+    .sort((a, b) => b[0] - a[0])
+    .map(([year, count]) => ({ year, count }));
+
+  const bySession = [...sessionCounts.entries()]
+    .map(([session, count]) => ({ session, count }))
+    .sort((a, b) => String(b.session).localeCompare(String(a.session)));
+
+  return {
+    sentenceCounts,
+    byYear,
+    bySession,
+    topKeywords,
+  };
 }
 
 function setPreviewStatus(message, tone = "loading") {
@@ -173,25 +412,34 @@ function setTab(view) {
   state.currentView = view;
   resourcesView.classList.toggle("hidden", view !== "resources");
   questionsView.classList.toggle("hidden", view !== "questions");
+  studyView.classList.toggle("hidden", view !== "study");
   moduleGrid.classList.toggle("hidden", view !== "resources");
   questionGrid.classList.toggle("hidden", view !== "questions");
   questionStatsEl.classList.toggle("hidden", view !== "questions");
+  if (studyStatsEl) {
+    studyStatsEl.classList.toggle("hidden", view !== "study");
+  }
   statsEl.classList.toggle("hidden", view !== "resources");
   viewSwitch.forEach((tab) => {
     tab.classList.toggle("active", tab.dataset.view === view);
   });
   if (view === "questions") {
     renderQuestions();
+  } else if (view === "study") {
+    renderStudyMode();
   } else {
     practiceCard.classList.add("hidden");
     practiceCard.innerHTML = "";
+    studyQuestionPractice?.classList.add("hidden");
   }
 }
 
 function ensureQuestionSelectOptions() {
   const questions = DATA.questions || [];
+  const resources = DATA.resources || [];
   const byCategory = questions.map((q) => q.category).filter(Boolean);
-  const byModule = questions.map((q) => q.module).filter(Boolean);
+  const questionModules = questions.map((q) => q.module).filter(Boolean);
+  const resourceModules = resources.map((r) => r.module).filter(Boolean);
   const byYear = questions.map((q) => q.year).filter(Boolean);
   const bySession = questions.map((q) => q.session).filter(Boolean);
 
@@ -199,14 +447,28 @@ function ensureQuestionSelectOptions() {
     '<option value="all">全部阶段</option>' +
     uniqueArray(byCategory).map((value) => `<option value="${value}">${value}</option>`).join("");
   questionModuleSelect.innerHTML =
-    '<option value="all">全部模块</option>' +
-    uniqueArray(byModule).map((value) => `<option value="${value}">${value}</option>`).join("");
+    '<option value="all">全部章节</option>' +
+    uniqueArray(questionModules).map((value) => `<option value="${value}">${value}</option>`).join("");
   questionYearSelect.innerHTML =
     '<option value="all">全部年份</option>' +
     uniqueArray(byYear).map((value) => `<option value="${value}">${value}</option>`).join("");
   questionSessionSelect.innerHTML =
     '<option value="all">全部场次</option>' +
     uniqueArray(bySession).map((value) => `<option value="${value}">${value}</option>`).join("");
+  resourceModuleSelect.innerHTML =
+    '<option value="all">全部章节</option>' +
+    uniqueArray([...questionModules, ...resourceModules]).map((value) => `<option value="${value}">${value}</option>`).join("");
+  const studyModules = uniqueArray(questionModules);
+  studyModuleSelect.innerHTML = studyModules
+    .map((value) => `<option value="${value}">${formatModuleLabel(value)}</option>`)
+    .join("");
+
+  if (studyModules.includes(state.study.module)) {
+    studyModuleSelect.value = state.study.module;
+  } else if (studyModules.length) {
+    state.study.module = studyModules[0];
+    studyModuleSelect.value = studyModules[0];
+  }
 }
 
 function renderResources() {
@@ -214,11 +476,13 @@ function renderResources() {
   const categoryValue = categorySelect.value;
   const modeValue = modeSelect.value;
   const doctypeValue = doctypeSelect.value;
+  const resourceModuleValue = resourceModuleSelect?.value || "all";
 
   const matched = DATA.resources.filter((item) => {
     if (categoryValue !== "all" && item.category !== categoryValue) return false;
     if (modeValue !== "all" && item.kind !== modeValue) return false;
     if (doctypeValue !== "all" && item.type !== doctypeValue) return false;
+    if (resourceModuleValue !== "all" && item.module !== resourceModuleValue) return false;
 
     const haystack = `${item.name} ${item.module} ${item.category} ${item.kind} ${item.type} ${item.session} ${item.year}`.toLowerCase();
     return !keyword || haystack.includes(keyword);
@@ -227,7 +491,7 @@ function renderResources() {
   const grouped = uniqueModules(matched);
   const groups = [...grouped.entries()].sort(([a], [b]) => a.localeCompare(b));
 
-  statsEl.textContent = `共找到 ${matched.length} 个文件，当前筛选共 ${groups.length} 个模块。`;
+  statsEl.textContent = `共找到 ${matched.length} 个文件，当前筛选共 ${groups.length} 个章节。`;
   moduleGrid.innerHTML = "";
 
   if (!groups.length) {
@@ -322,6 +586,152 @@ function renderResources() {
     container.appendChild(content);
     moduleGrid.appendChild(container);
   }
+}
+
+function getStudyOrder(pool, mode) {
+  const list = [...pool];
+  if (mode === "random") {
+    for (let i = list.length - 1; i > 0; i--) {
+      const swap = Math.floor(Math.random() * (i + 1));
+      [list[i], list[swap]] = [list[swap], list[i]];
+    }
+    return list;
+  }
+
+  return list.sort((a, b) => {
+    const yearA = Number(a.year) || 0;
+    const yearB = Number(b.year) || 0;
+    if (yearA !== yearB) {
+      return yearA - yearB;
+    }
+
+    const sessionA = String(a.session || "").localeCompare(String(b.session || ""));
+    if (sessionA !== 0) {
+      return sessionA;
+    }
+
+    const numberA = Number.parseInt(String(a.number || "0"), 10) || 0;
+    const numberB = Number.parseInt(String(b.number || "0"), 10) || 0;
+    if (numberA !== numberB) {
+      return numberA - numberB;
+    }
+
+    return String(a.prompt || "").localeCompare(String(b.prompt || ""));
+  });
+}
+
+function renderStudySummary(module, pool) {
+  const insights = gatherStudyInsights(pool);
+  const hasData = Boolean(pool && pool.length);
+  if (!hasData) {
+    studySummary.innerHTML = `<div class="empty">该章节暂无可学习题目。</div>`;
+    return;
+  }
+
+  const yearRows = insights.byYear
+    .map((item) => `${item.year || "未标注"}: ${item.count}题`)
+    .join(" / ");
+  const sessionRows = insights.bySession
+    .map((item) => `${item.session}: ${item.count}题`)
+    .join(" / ");
+  const keywordRows = insights.topKeywords.length
+    ? insights.topKeywords.map((keyword) => `<span class="chip">${keyword}</span>`).join("")
+    : "<span class=\"chip\">尚未识别到稳定关键词，建议直接按题目顺序学习</span>";
+
+  studySummary.innerHTML = `
+    <section class="study-summary-panel">
+      <h3>${formatModuleLabel(module)} 学习加练习总览</h3>
+      <p>已提炼 ${insights.sentenceCounts.total} 道题，${insights.sentenceCounts.withAnswer} 道有答案。</p>
+      <p>年份分布：${yearRows}</p>
+      <p>场次分布：${sessionRows}</p>
+      <div class="chip-row">${keywordRows}</div>
+    </section>
+  `;
+}
+
+function setupStudyPool() {
+  const module = studyModuleSelect ? studyModuleSelect.value : state.study.module;
+  const answerFilter = studyAnswerFilter ? studyAnswerFilter.value : "all";
+  const filtered = parseModuleQuestions(module, answerFilter);
+  state.study.module = module;
+  state.study.pool = filtered;
+  state.study.mode = "sequence";
+  state.study.order = [];
+  state.study.pointer = -1;
+  renderStudySummary(module, filtered);
+  studyStatsEl.textContent = `当前可用 ${filtered.length} 题`;
+  studySeqBtn.disabled = !filtered.length;
+  studyRandomBtn.disabled = !filtered.length;
+  studyPrevBtn.disabled = !filtered.length;
+  studyNextBtn.disabled = !filtered.length;
+
+  return filtered;
+}
+
+function setStudyQuestionByPointer(pointer, options = {}) {
+  if (!studyQuestionPractice || !state.study.order.length) {
+    return;
+  }
+
+  const total = state.study.order.length;
+  const safePointer = ((pointer % total) + total) % total;
+  state.study.pointer = safePointer;
+  const question = state.study.order[safePointer];
+
+  const node = createQuestionNode(question);
+  node.classList.add("practice-active");
+  studyQuestionPractice.classList.remove("hidden");
+  studyQuestionPractice.innerHTML = "";
+  studyQuestionPractice.appendChild(node);
+  studyStatsEl.textContent = `章节 ${formatModuleLabel(state.study.module)} 进度 ${safePointer + 1}/${total}`;
+
+  if (!options.silent) {
+    studyQuestionPractice.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+}
+
+function startStudy(mode = "sequence") {
+  const pool = setupStudyPool();
+  if (!pool.length) {
+    studyQuestionPractice.classList.add("hidden");
+    studyStatsEl.textContent = `该章节暂无可学习题目`;
+    return;
+  }
+
+  state.study.mode = mode;
+  state.study.order = getStudyOrder(pool, mode);
+  const startIndex = mode === "random" ? 0 : 0;
+  setStudyQuestionByPointer(startIndex);
+  studyPrevBtn.disabled = false;
+  studyNextBtn.disabled = false;
+}
+
+function goNextStudyQuestion() {
+  if (!state.study.order.length) {
+    return;
+  }
+  if (state.study.order.length <= 1) {
+    return;
+  }
+  const next = state.study.pointer + 1;
+  setStudyQuestionByPointer(next);
+}
+
+function goPrevStudyQuestion() {
+  if (!state.study.order.length) {
+    return;
+  }
+  if (state.study.order.length <= 1) {
+    return;
+  }
+  const prev = state.study.pointer - 1;
+  setStudyQuestionByPointer(prev);
+}
+
+function renderStudyMode() {
+  setupStudyPool();
+  studyQuestionPractice.classList.add("hidden");
+  studyQuestionPractice.innerHTML = "";
 }
 
 function getFilteredQuestions() {
@@ -506,6 +916,14 @@ function initializeViewState() {
   ensureQuestionSelectOptions();
   renderResources();
   renderQuestions();
+  if (studyModuleSelect) {
+    const options = Array.from(studyModuleSelect.options).map((item) => item.value);
+    const defaultStudyModule = options.includes("M1") ? "M1" : options[0] || "";
+    state.study.module = defaultStudyModule;
+    if (defaultStudyModule) {
+      studyModuleSelect.value = defaultStudyModule;
+    }
+  }
   setTab("resources");
 }
 
@@ -525,9 +943,19 @@ function bindEvents() {
   questionYearSelect?.addEventListener("change", renderQuestions);
   questionSessionSelect?.addEventListener("change", renderQuestions);
   questionAnswerFilter?.addEventListener("change", renderQuestions);
+  resourceModuleSelect?.addEventListener("change", renderResources);
+  studyModuleSelect?.addEventListener("change", () => {
+    state.study.module = studyModuleSelect.value;
+    renderStudyMode();
+  });
+  studyAnswerFilter?.addEventListener("change", renderStudyMode);
 
   practiceRandomBtn?.addEventListener("click", showPracticeQuestion);
   practiceNextBtn?.addEventListener("click", showPracticeQuestion);
+  studySeqBtn?.addEventListener("click", () => startStudy("sequence"));
+  studyRandomBtn?.addEventListener("click", () => startStudy("random"));
+  studyPrevBtn?.addEventListener("click", goPrevStudyQuestion);
+  studyNextBtn?.addEventListener("click", goNextStudyQuestion);
 
   previewFrame?.addEventListener("load", () => {
     if (!previewModal?.classList.contains("open")) {
