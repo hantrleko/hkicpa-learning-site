@@ -10,12 +10,13 @@
     <div class="page">
       <header class="hero">
         <h1>HKICPA LP + Past paper 学习站</h1>
-        <p>自动聚合学习资料与历年试卷，支持关键词筛选、模块筛选，并内置题库练习（可直接查看参考答案）。</p>
+        <p>自动聚合学习资料与历年试卷，支持关键词筛选、章节筛选，并新增学习加练习模式（章节自动提炼学习要点）。</p>
       </header>
 
       <div class="view-switch" role="tablist" aria-label="学习方式">
         <button class="view-tab active" data-view="resources" type="button">资料浏览</button>
         <button class="view-tab" data-view="questions" type="button">题库练习</button>
+        <button class="view-tab" data-view="study" type="button">学习加练习</button>
       </div>
 
       <section class="controls" aria-label="筛选区">
@@ -52,6 +53,12 @@
                 <option value="Document">Document</option>
               </select>
             </div>
+            <div class="control-group">
+              <label for="resource-module">章节</label>
+              <select id="resource-module">
+                <option value="all">全部章节</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -68,9 +75,9 @@
               </select>
             </div>
             <div class="control-group">
-              <label for="question-module">模块</label>
+              <label for="question-module">章节</label>
               <select id="question-module">
-                <option value="all">全部</option>
+                <option value="all">全部章节</option>
               </select>
             </div>
             <div class="control-group">
@@ -101,6 +108,37 @@
             <span id="question-stats" class="stats-inline" aria-live="polite"></span>
           </div>
           <div id="question-practice" class="question-practice hidden"></div>
+        </div>
+
+        <div id="study-view" class="view-panel hidden">
+          <div class="control-grid">
+            <div class="control-group">
+              <label for="study-module">学习章节</label>
+              <select id="study-module">
+                <option value="M1">M1</option>
+              </select>
+            </div>
+            <div class="control-group">
+              <label for="study-answer-filter">题目范围</label>
+              <select id="study-answer-filter">
+                <option value="all">全部题目</option>
+                <option value="with-answer">仅有参考答案</option>
+                <option value="without-answer">仅无参考答案</option>
+              </select>
+            </div>
+          </div>
+
+          <section id="study-summary" class="study-summary"></section>
+
+          <div class="practice-row">
+            <button id="study-seq" class="btn answer-btn" type="button">开始顺序学习</button>
+            <button id="study-random" class="btn folder-btn" type="button">开始随机练习</button>
+            <button id="study-prev" class="btn folder-btn" type="button">上一题</button>
+            <button id="study-next" class="btn folder-btn" type="button">下一题</button>
+            <span id="study-stats" class="stats-inline" aria-live="polite"></span>
+          </div>
+
+          <div id="study-question-practice" class="question-practice hidden"></div>
         </div>
       </section>
 
