@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HKICPA LP+历年试卷学习站</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="page">
+      <header class="hero">
+        <h1>HKICPA LP + Past paper 学习站</h1>
+        <p>自动聚合学习资料与历年试卷，支持关键词筛选、模块筛选，并内置题库练习（可直接查看参考答案）。</p>
+      </header>
+
+      <div class="view-switch" role="tablist" aria-label="学习方式">
+        <button class="view-tab active" data-view="resources" type="button">资料浏览</button>
+        <button class="view-tab" data-view="questions" type="button">题库练习</button>
+      </div>
+
+      <section class="controls" aria-label="筛选区">
+        <div id="resources-view" class="view-panel">
+          <div class="control-grid">
+            <div class="control-group">
+              <label for="search">关键词</label>
+              <input id="search" type="search" placeholder="例：Module 11 Dec 2024 Question" />
+            </div>
+            <div class="control-group">
+              <label for="category">阶段</label>
+              <select id="category">
+                <option value="all">全部</option>
+                <option value="1-10">M1-10</option>
+                <option value="11-14">11-14</option>
+              </select>
+            </div>
+            <div class="control-group">
+              <label for="mode">资料类型</label>
+              <select id="mode">
+                <option value="all">全部</option>
+                <option value="LP Material">LP 材料</option>
+                <option value="Past Paper">历年试卷</option>
+              </select>
+            </div>
+            <div class="control-group">
+              <label for="doctype">内容类型</label>
+              <select id="doctype">
+                <option value="all">全部</option>
+                <option value="Question">Question</option>
+                <option value="Answer">Answer</option>
+                <option value="Report">Report</option>
+                <option value="LP">LP</option>
+                <option value="Document">Document</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div id="questions-view" class="view-panel hidden">
+          <div class="control-grid">
+            <div class="control-group">
+              <label for="question-search">关键词</label>
+              <input id="question-search" type="search" placeholder="例：Partnership，或题号 1，或 M1" />
+            </div>
+            <div class="control-group">
+              <label for="question-category">阶段</label>
+              <select id="question-category">
+                <option value="all">全部</option>
+              </select>
+            </div>
+            <div class="control-group">
+              <label for="question-module">模块</label>
+              <select id="question-module">
+                <option value="all">全部</option>
+              </select>
+            </div>
+            <div class="control-group">
+              <label for="question-year">年份</label>
+              <select id="question-year">
+                <option value="all">全部</option>
+              </select>
+            </div>
+            <div class="control-group">
+              <label for="question-session">场次</label>
+              <select id="question-session">
+                <option value="all">全部</option>
+              </select>
+            </div>
+            <div class="control-group">
+              <label for="question-answer-filter">答案状态</label>
+              <select id="question-answer-filter">
+                <option value="all">全部</option>
+                <option value="with-answer">有参考答案</option>
+                <option value="without-answer">无参考答案</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="practice-row">
+            <button id="random-question" class="btn answer-btn" type="button">随机抽题</button>
+            <button id="next-question" class="btn folder-btn" type="button">下一题</button>
+            <span id="question-stats" class="stats-inline" aria-live="polite"></span>
+          </div>
+          <div id="question-practice" class="question-practice hidden"></div>
+        </div>
+      </section>
+
+      <section class="stats" id="stats" aria-live="polite"></section>
+
+    <main>
+        <div id="module-grid" class="module-grid"></div>
+        <div id="question-grid" class="question-grid"></div>
+      </main>
+
+      <section id="question-preview-modal" class="preview-modal hidden" aria-hidden="true" aria-label="题目原页预览">
+        <div class="preview-backdrop" role="presentation"></div>
+        <div class="preview-panel" role="dialog" aria-modal="true" aria-labelledby="preview-title">
+          <header class="preview-head">
+            <h2 id="preview-title">题目原页预览</h2>
+            <button id="close-preview" class="preview-close" type="button" aria-label="关闭预览">关闭</button>
+          </header>
+          <div class="preview-meta-row">
+            <span id="preview-meta" class="preview-meta"></span>
+          </div>
+          <div class="preview-body">
+            <div id="preview-status" class="preview-status hidden" role="status" aria-live="polite"></div>
+            <iframe id="preview-frame" class="preview-frame" loading="lazy" title="题目原页预览区"></iframe>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <script src="./data/resources.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,30 @@
+{
+  "name": "hkicpa-learning-site",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "build": "node ./scripts/build-study-index.js",
+    "build:index": "node ./scripts/build-study-index.js",
+    "build:deploy": "node ./scripts/build-study-index.js",
+    "build:fast": "set HKICPA_BUILD_MODE=fast&&node ./scripts/build-study-index.js",
+    "build:bootstrap": "npm run build:full",
+    "build:full": "set HKICPA_BUILD_MODE=full&&set HKICPA_FORCE_REBUILD=1&&set HKICPA_INCREMENTAL=1&&node ./scripts/build-study-index.js",
+    "prepare:deploy": "npm run build && node ./scripts/prepare-deploy-site.js",
+    "prepare:deploy:fast": "npm run build:fast && node ./scripts/prepare-deploy-site.js",
+    "prepare:deploy:full": "npm run build:full && node ./scripts/prepare-deploy-site.js",
+    "prepare:deploy:bootstrap": "npm run build:bootstrap && node ./scripts/prepare-deploy-site.js",
+    "deploy": "npm run prepare:deploy",
+    "deploy:fast": "npm run prepare:deploy:fast",
+    "deploy:full": "npm run prepare:deploy:full",
+    "deploy:bootstrap": "npm run prepare:deploy:bootstrap",
+    "start": "npx serve . -l 4173",
+    "start:dist": "npx serve dist -l 4173"
+  },
+  "dependencies": {
+    "canvas": "^3.2.3",
+    "mammoth": "^1.9.0",
+    "pdf-parse": "^1.1.1",
+    "pdfjs-dist": "^6.0.227",
+    "tesseract.js": "^7.0.0"
+  }
+}

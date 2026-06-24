@@ -1,0 +1,29 @@
+# Node / runtime
+node_modules/
+*.log
+npm-debug.log*
+.yarn-error.log*
+.pnp
+.pnp.js
+
+# Build outputs
+/dist
+/dist-test
+dist/
+dist-test/
+
+# Parser cache / temp files
+Data/.build-cache.json
+data/.build-cache.json
+/temp-*.js
+/temp_*
+temp_parse.js
+temp-pdfocr-test.js
+
+# Large generated assets
+*.traineddata
+data/*.tmp
+
+# OS / editor
+.DS_Store
+Thumbs.db
