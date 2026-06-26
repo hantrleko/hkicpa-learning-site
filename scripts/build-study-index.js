@@ -454,27 +454,113 @@ function detectCategory(categoryPath) {
   return "Other";
 }
 
+function normalizeForLooseMatch(value) {
+  return String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
+function normalizeForLooseTokens(value) {
+  return String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function normalizeTwoDigitYear(value) {
+  const yy = Number(value);
+  if (!Number.isFinite(yy)) {
+    return 0;
+  }
+  return yy <= 39 ? 2000 + yy : 1900 + yy;
+}
+
 function detectType(name) {
+  const tokens = normalizeForLooseTokens(name);
+  const compact = normalizeForLooseMatch(name);
+
   if (/(report|panelists)/i.test(name)) return "Report";
   if (/(errata|syllabus|rubric|rubrics|workshop|important note|detailed|proficiency)/i.test(name)) return "LP";
-  if (/\banswer\b/i.test(name)) return "Answer";
-  if (/\bquestion\b/i.test(name)) return "Question";
+
+  if (/\banswer\b/.test(tokens) || /answer/i.test(compact)) return "Answer";
+  if (/\bquestion\b/.test(tokens) || /question/i.test(compact)) return "Question";
+
   return "Document";
 }
 
 function detectPeriod(name) {
-  const match = name.match(
-    /\b((?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|december|june|july))[ -]?(?:20\d{2}|19\d{2})?\b/i,
+  const normalized = String(name).toUpperCase();
+  const compact = normalized.replace(/[^A-Z0-9]+/g, "");
+  const monthWithYear = normalized.match(
+    /\b(?:JAN|JANUARY|FEB|FEBRUARY|MAR|MARCH|APR|APRIL|MAY|JUN|JUNE|JUL|JULY|AUG|AUGUST|SEP|SEPT|SEPTEMBER|OCT|OCTOBER|NOV|NOVEMBER|DEC|DECEMBER)\b\s*(20\d{2}|19\d{2}|\d{2})?/i,
   );
-  if (!match) return "Unspecified";
-  return match[0].toUpperCase().replace(/\s+/g, " ").trim();
+  if (monthWithYear) {
+    const source = monthWithYear[0].trim();
+    return source.toUpperCase().replace(/\s+/g, " ").trim();
+  }
+
+  const compactMonthYear = compact.match(
+    /(?:JAN|JANUARY|FEB|FEBRUARY|MAR|MARCH|APR|APRIL|MAY|JUN|JUNE|JUL|JULY|AUG|AUGUST|SEP|SEPT|SEPTEMBER|OCT|OCTOBER|NOV|NOVEMBER|DEC|DECEMBER)(\d{2})(?!\d)/i,
+  );
+  if (compactMonthYear) {
+    const month = compactMonthYear[0].match(
+      /(?:JAN|FEB|MAR|APR|MAY|JUN|JULY|JUL|AUG|SEP|SEPT|OCT|NOV|DEC)/i,
+    )?.[0];
+    return month ? month.toUpperCase() : "Unspecified";
+  }
+
+  const compactMonthYear4 = compact.match(
+    /(?:JAN|JANUARY|FEB|FEBRUARY|MAR|MARCH|APR|APRIL|MAY|JUN|JUNE|JUL|JULY|AUG|AUGUST|SEP|SEPT|SEPTEMBER|OCT|OCTOBER|NOV|NOVEMBER|DEC|DECEMBER)(\d{4})(?!\d)/i,
+  );
+  if (compactMonthYear4) {
+    const month = compactMonthYear4[0].match(
+      /(?:JAN|FEB|MAR|APR|MAY|JUN|JULY|JUL|AUG|SEP|SEPT|OCT|NOV|DEC)/i,
+    )?.[0];
+    return month ? month.toUpperCase() : "Unspecified";
+  }
+
+  const fallbackSession = normalizeForLooseTokens(name);
+  const monthOnly = fallbackSession.match(
+    /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec|december|june|july)\b/i,
+  );
+  if (monthOnly) {
+    return monthOnly[0].toUpperCase();
+  }
+
+  return "Unspecified";
 }
 
 function detectYear(name) {
-  const match = name.match(/(20\d{2}|19\d{2})/);
-  return match ? Number(match[1]) : 0;
-}
+  const fourDigit = name.match(/(20\d{2}|19\d{2})/);
+  if (fourDigit) {
+    return Number(fourDigit[1]);
+  }
 
+  const monthYearMatch = String(name).match(
+    /(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec|june|july)(?:[\s\-_.]?(\d{2}))(?!\d)/i,
+  );
+  if (monthYearMatch) {
+    return normalizeTwoDigitYear(monthYearMatch[1]);
+  }
+
+  const monthYearMatchCompact = String(name).match(
+    /(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec|june|july)(\d{2})(?!\d)/i,
+  );
+  if (monthYearMatchCompact) {
+    return normalizeTwoDigitYear(monthYearMatchCompact[1]);
+  }
+
+  const monthYearMatch4 = String(name).match(
+    /(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec|june|july)(?:[\s\-_.]?(20\d{2}|19\d{2}))(?!\d)/i,
+  );
+  if (monthYearMatch4) {
+    return Number(monthYearMatch4[1]);
+  }
+
+  const yearMonthMatch = String(name).match(
+    /(?:^|[^A-Za-z0-9])(20\d{2}|19\d{2})(?:[\s\-_.]*)(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec|june|july)/i,
+  );
+  if (yearMonthMatch) {
+    return Number(yearMonthMatch[1]);
+  }
+
+  return 0;
+}
 function detectSession(name) {
   if (/dec|december/i.test(name)) return "Dec";
   if (/jun|june/i.test(name)) return "Jun";
@@ -489,6 +575,57 @@ function detectSession(name) {
   if (/oct|october/i.test(name)) return "Oct";
   if (/nov|november/i.test(name)) return "Nov";
   return "";
+}
+
+function formatResourcePath(resourceId = "") {
+  return decodeURIComponent(String(resourceId || ""))
+    .replace(/#.*$/, "")
+    .split("/")
+    .pop();
+}
+
+function printCoverageCheckpoints(questions = []) {
+  const buckets = new Map();
+  for (const question of questions) {
+    const key = question.module || "Unknown";
+    const bucket = buckets.get(key) || {
+      total: 0,
+      matched: 0,
+      resources: new Map(),
+    };
+    bucket.total += 1;
+    if (question.hasAnswer) {
+      bucket.matched += 1;
+    } else {
+      const resourceId = question.resourceId || question.resourcePath || "";
+      const summary = bucket.resources.get(resourceId) || {
+        count: 0,
+        path: formatResourcePath(resourceId),
+      };
+      summary.count += 1;
+      bucket.resources.set(resourceId, summary);
+    }
+    buckets.set(key, bucket);
+  }
+
+  let hasUnmatched = false;
+  const sortedBuckets = Array.from(buckets.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  for (const [module, bucket] of sortedBuckets) {
+    const unmatched = bucket.total - bucket.matched;
+    if (unmatched <= 0) {
+      continue;
+    }
+    hasUnmatched = true;
+    console.log(`[检查] ${module} 未匹配: ${unmatched}/${bucket.total}`);
+    for (const [resourceId, info] of Array.from(bucket.resources.entries()).slice(0, 8)) {
+      const label = info.path || formatResourcePath(resourceId);
+      console.log(`  - ${info.count} 题 | ${label}`);
+    }
+  }
+
+  if (!hasUnmatched) {
+    console.log("[检查] 全部题目均已匹配到答案。");
+  }
 }
 
 function normalizeText(text) {
@@ -1617,6 +1754,7 @@ async function main() {
     fs.writeFileSync(OUTPUT_FILE, text, "utf8");
     console.log(`Generated ${output.total} entries at: ${OUTPUT_FILE}`);
     console.log(`Extracted ${output.questions.length} questions from papers.`);
+    printCoverageCheckpoints(output.questions);
     const stats = payload.stats || {};
     const cacheLabel = `${stats.cachedHit || 0}/${stats.total || output.total || 0}`;
     console.log(`缓存复用: ${cacheLabel} 文件`);
@@ -1639,3 +1777,5 @@ main().catch((err) => {
   console.error("Build failed:", err);
   process.exit(1);
 });
+
+

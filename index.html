@@ -7,20 +7,252 @@
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <div class="page">
-      <header class="hero">
-        <h1>HKICPA LP + Past paper 学习站</h1>
-        <p>自动聚合学习资料与历年试卷，支持关键词筛选、章节筛选，并新增学习加练习模式（章节自动提炼学习要点）。</p>
+    <script>
+      (() => {
+        const PASSCODE = "HKICPA2026";
+        const STORAGE_KEY = "hkicpa-study-portal-session";
+        const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
+
+        function isSessionValid(session) {
+          if (!session || typeof session !== "object") {
+            return false;
+          }
+
+          const expiresAt = Number(session.expiresAt);
+          if (!Number.isFinite(expiresAt)) {
+            return false;
+          }
+
+          return expiresAt > Date.now();
+        }
+
+        function getStoredSession() {
+          try {
+            const raw = window.localStorage.getItem(STORAGE_KEY);
+            return raw ? JSON.parse(raw) : null;
+          } catch {
+            return null;
+          }
+        }
+
+        function setSession() {
+          try {
+            window.localStorage.setItem(
+              STORAGE_KEY,
+              JSON.stringify({
+                ok: true,
+                issuedAt: Date.now(),
+                expiresAt: Date.now() + SESSION_TTL_MS,
+              }),
+            );
+          } catch {
+            // localStorage unavailable in some private modes; continue with in-memory session.
+          }
+        }
+
+        function clearSession() {
+          try {
+            window.localStorage.removeItem(STORAGE_KEY);
+          } catch {
+            // Ignore.
+          }
+        }
+
+        function renderAuthGate() {
+          if (document.getElementById("hkicpa-access-gate")) {
+            return;
+          }
+
+          document.body.classList.add("is-locked");
+
+          const gate = document.createElement("section");
+          gate.className = "access-gate";
+          gate.id = "hkicpa-access-gate";
+          gate.innerHTML = `
+            <form class="access-gate-card" id="hkicpa-access-form" autocomplete="off" novalidate>
+              <p class="access-kicker">Private Access</p>
+              <h1 class="access-title">HKICPA 学习站入口</h1>
+              <p class="access-desc">本页面为分享站，已启用项目口令。请输入正确口令后继续。</p>
+              <label class="access-label" for="hkicpa-access-input">项目口令</label>
+              <input id="hkicpa-access-input" class="access-input" type="password" name="passcode" autocomplete="current-password" placeholder="请输入口令" required />
+              <button class="access-submit" type="submit">进入</button>
+              <p id="hkicpa-access-error" class="access-error" role="alert" aria-live="polite"></p>
+              <button class="access-logout-btn" type="button" id="hkicpa-clear-session" title="更换口令或设备时清理本机登录信息">清理本机登录状态</button>
+            </form>
+          `;
+
+          document.body.appendChild(gate);
+
+          const form = document.getElementById("hkicpa-access-form");
+          const input = document.getElementById("hkicpa-access-input");
+          const error = document.getElementById("hkicpa-access-error");
+          const clearBtn = document.getElementById("hkicpa-clear-session");
+
+          clearBtn?.addEventListener("click", () => {
+            clearSession();
+            error.textContent = "已清理本机登录状态。";
+          });
+
+          form?.addEventListener("submit", (event) => {
+            event.preventDefault();
+            const value = String(input?.value || "").trim();
+
+            if (value === PASSCODE) {
+              setSession();
+              gate.remove();
+              document.body.classList.remove("is-locked");
+              return;
+            }
+
+            if (error) {
+              error.textContent = "口令不正确，请重试。";
+            }
+            if (input) {
+              input.value = "";
+              input.focus();
+            }
+          });
+
+          if (input) {
+            input.focus();
+          }
+        }
+
+        const session = getStoredSession();
+        if (!isSessionValid(session)) {
+          if (session) {
+            clearSession();
+          }
+          renderAuthGate();
+        }
+      })();
+    </script>
+    <div class="page-shell">
+      <header class="topbar">
+        <a href="#" class="topbar-brand">
+          <span class="brand-mark">☰</span>
+          <span><strong>HKICPA</strong> Practice Lab</span>
+        </a>
+        <p class="topbar-subtitle">M11 Financial Reporting › Jun 2025 Case Question</p>
+        <div class="topbar-tools" aria-label="顶部工具">
+          <span class="topbar-tool">◷ Timer <strong>49:30</strong></span>
+          <span class="topbar-tool">▣ Calculator</span>
+          <span class="topbar-tool">▤ Notes</span>
+          <span class="topbar-avatar">KC</span>
+        </div>
       </header>
 
-      <div class="view-switch" role="tablist" aria-label="学习方式">
-        <button class="view-tab active" data-view="resources" type="button">资料浏览</button>
+      <section class="hero panel">
+        <h1>M11 Financial Reporting 互动样板</h1>
+        <p>用一个真实考试场景演示未来网站的核心体验：计时做题、答题笔记、标准答案要点、考官报告弱点和复习进度。</p>
+      </section>
+
+      <nav class="view-switch" role="tablist" aria-label="学习方式">
+        <button class="view-tab active" data-view="lab" type="button">样板工作台</button>
+        <button class="view-tab" data-view="resources" type="button">资料浏览</button>
         <button class="view-tab" data-view="questions" type="button">题库练习</button>
         <button class="view-tab" data-view="study" type="button">学习加练习</button>
-      </div>
+      </nav>
 
-      <section class="controls" aria-label="筛选区">
+      <section class="controls panel" aria-label="筛选区">
+        <div id="lab-view" class="view-panel">
+          <div class="lab-shell">
+            <aside class="lab-sidebar" aria-label="模块导航">
+              <div class="lab-sidebar-head">
+                <div>
+                  <span>MODULE 11</span>
+                  <strong>Financial Reporting</strong>
+                </div>
+              </div>
+              <nav class="lab-main-nav" aria-label="主导航">
+                <button class="view-tab lab-nav-tab" data-view="resources" type="button">▦ Dashboard</button>
+                <button class="view-tab lab-nav-tab" data-view="questions" type="button">▤ Past Papers</button>
+                <button class="view-tab lab-nav-tab is-practice" data-view="lab" type="button">✎ Practice</button>
+                <button class="view-tab lab-nav-tab" data-view="study" type="button">▣ Examiner Reports</button>
+                <button class="lab-nav-tab" type="button">▱ My Notes</button>
+                <button class="lab-nav-tab" type="button">▱ Bookmarks</button>
+              </nav>
+              <div class="lab-session-title">
+                <span id="lab-sidebar-case">M11 Jun 2025</span>
+              </div>
+              <div id="lab-task-tabs" class="lab-task-tabs" role="tablist" aria-label="样板题目"></div>
+              <div class="lab-mini-stat">
+                <span>Progress</span>
+                <strong id="lab-sidebar-progress">0/6</strong>
+              </div>
+            </aside>
+
+            <main class="lab-workspace">
+              <header class="lab-workspace-head">
+              <div>
+                  <p id="lab-context" class="lab-context">M11 Financial Reporting · Jun 2025</p>
+                  <h2 id="lab-task-title">Case Question</h2>
+                </div>
+                <div class="lab-timer" aria-live="polite">
+                  <span>Timer</span>
+                  <strong id="lab-timer-value">50:00</strong>
+                  <div class="lab-timer-actions">
+                    <button id="lab-timer-toggle" class="icon-btn" type="button" title="开始或暂停计时" aria-label="开始或暂停计时">▶</button>
+                    <button id="lab-timer-reset" class="icon-btn" type="button" title="重置计时" aria-label="重置计时">↺</button>
+                  </div>
+                </div>
+              </header>
+
+              <article class="lab-question-panel">
+                <div class="lab-question-meta">
+                  <span id="lab-task-marks">28 marks</span>
+                  <span id="lab-task-time">50 minutes</span>
+                  <span id="lab-task-standard">HKFRS 10</span>
+                </div>
+                <h3 id="lab-question-heading">Question prompt</h3>
+                <p id="lab-question-prompt" class="lab-question-prompt"></p>
+                <div id="lab-key-facts" class="lab-key-facts"></div>
+                <label class="lab-answer-label" for="lab-answer-input">你的作答笔记</label>
+                <textarea id="lab-answer-input" rows="7" placeholder="在这里写你的 answer skeleton、计算路径或待查 standards..."></textarea>
+                <div class="lab-action-row">
+                  <button id="lab-save-note" class="btn folder-btn" type="button">保存笔记</button>
+                  <button id="lab-mark-complete" class="btn answer-btn" type="button">标记完成</button>
+                  <span id="lab-save-status" class="stats-inline" aria-live="polite"></span>
+                </div>
+              </article>
+            </main>
+
+            <aside class="lab-insights" aria-label="答案和考官提醒">
+              <div class="lab-insight-tabs" role="tablist" aria-label="复盘视图">
+                <button class="lab-insight-tab is-active" data-lab-panel="answer" type="button">答案要点</button>
+                <button class="lab-insight-tab" data-lab-panel="examiner" type="button">考官提醒</button>
+                <button class="lab-insight-tab" data-lab-panel="weakness" type="button">错因标签</button>
+              </div>
+              <div id="lab-insight-content" class="lab-insight-content"></div>
+            </aside>
+          </div>
+
+          <section class="lab-progress-band" aria-label="复习弱点和进度">
+            <div class="lab-bottom-card">
+              <h3>Examiner Insights – Common Weaknesses</h3>
+              <p><span class="warning-dot">▲</span><strong id="lab-weakness-focus">OCI reclassification vs transfer</strong><em>High</em></p>
+              <p><span class="warning-dot">▲</span>Applying similar standards without case facts<em>High</em></p>
+              <p><span class="warning-dot">▲</span>Insufficient workings for calculations<em>Medium</em></p>
+            </div>
+            <div class="lab-bottom-card lab-performance-card">
+              <h3>Your Performance – M11</h3>
+              <div class="lab-donut" aria-label="65% overall performance">65%</div>
+              <p><span>Correct</span><strong>13</strong></p>
+              <p><span>Partially Correct</span><strong>3</strong></p>
+              <p><span>Unattempted</span><strong>5</strong></p>
+            </div>
+            <div class="lab-bottom-card">
+              <h3>Topic Performance</h3>
+              <p><span>Conceptual Framework</span><strong>67%</strong></p>
+              <p><span>Financial Statements</span><strong>71%</strong></p>
+              <p><span>Leases</span><strong>33%</strong></p>
+              <p><span>Next</span><strong id="lab-next-step">Complete Question 1 review</strong></p>
+            </div>
+          </section>
+        </div>
+
         <div id="resources-view" class="view-panel">
+          <h2 class="section-title">资料检索</h2>
           <div class="control-grid">
             <div class="control-group">
               <label for="search">关键词</label>
@@ -63,6 +295,7 @@
         </div>
 
         <div id="questions-view" class="view-panel hidden">
+          <h2 class="section-title">题库条件筛选</h2>
           <div class="control-grid">
             <div class="control-group">
               <label for="question-search">关键词</label>
@@ -102,21 +335,34 @@
             </div>
           </div>
 
-          <div class="practice-row">
-            <button id="random-question" class="btn answer-btn" type="button">随机抽题</button>
-            <button id="next-question" class="btn folder-btn" type="button">下一题</button>
+          <div class="practice-row question-toolbar">
+            <button id="question-seq" class="btn answer-btn" type="button">开始顺序练习</button>
+            <button id="question-random" class="btn folder-btn" type="button">开始随机抽题</button>
+            <button id="question-prev" class="btn folder-btn" type="button">上一题</button>
+            <button id="question-next" class="btn folder-btn" type="button">下一题</button>
             <span id="question-stats" class="stats-inline" aria-live="polite"></span>
           </div>
           <div id="question-practice" class="question-practice hidden"></div>
         </div>
 
         <div id="study-view" class="view-panel hidden">
+          <h2 class="section-title">学习计划</h2>
           <div class="control-grid">
             <div class="control-group">
               <label for="study-module">学习章节</label>
               <select id="study-module">
                 <option value="M1">M1</option>
               </select>
+            </div>
+            <div class="control-group">
+              <label for="study-section">学习场次</label>
+              <select id="study-section">
+                <option value="all">全部场次</option>
+              </select>
+            </div>
+            <div class="study-section-pills-wrap">
+              <label class="section-pills-title">场次快速选择</label>
+              <div id="study-section-pills" class="study-section-pills" role="tablist" aria-label="学习场次快速选择"></div>
             </div>
             <div class="control-group">
               <label for="study-answer-filter">题目范围</label>
@@ -130,9 +376,9 @@
 
           <section id="study-summary" class="study-summary"></section>
 
-          <div class="practice-row">
-            <button id="study-seq" class="btn answer-btn" type="button">开始顺序学习</button>
-            <button id="study-random" class="btn folder-btn" type="button">开始随机练习</button>
+          <div class="practice-row question-toolbar">
+            <button id="study-seq" class="btn answer-btn" type="button">开始顺序学习（当前场次）</button>
+            <button id="study-random" class="btn folder-btn" type="button">开始随机复习</button>
             <button id="study-prev" class="btn folder-btn" type="button">上一题</button>
             <button id="study-next" class="btn folder-btn" type="button">下一题</button>
             <span id="study-stats" class="stats-inline" aria-live="polite"></span>
@@ -142,9 +388,9 @@
         </div>
       </section>
 
-      <section class="stats" id="stats" aria-live="polite"></section>
+      <section class="stats panel" id="stats" aria-live="polite"></section>
 
-    <main>
+      <main class="results">
         <div id="module-grid" class="module-grid"></div>
         <div id="question-grid" class="question-grid"></div>
       </main>
@@ -168,6 +414,7 @@
     </div>
 
     <script src="./data/resources.js"></script>
+    <script src="./data/lab-m11-jun2025.js"></script>
     <script src="./app.js"></script>
   </body>
 </html>

@@ -132,9 +132,19 @@ dist/
 把整个 `dist` 目录上传到你的托管服务即可（Nginx / Vercel / Cloudflare Pages / GitHub Pages）。  
 只要域名与 `HKICPA_PUBLIC_ROOT` 的站点/目录一致，题目“查看原题页”和“打开原题”就会用线上 PDF，不依赖你的本地电脑。
 
+### 4) 线上登录口令（当前过渡方案）
+
+当前版本已内置 **共享口令保护层**（前端快速版，适合快速启动）：
+
+- 口令常量：`HKICPA2026`（写在 `index.html` 顶部的 `PASSCODE`）。
+- 登录有效期：8 小时，保存在本机 `localStorage`（`hkicpa-study-portal-session`）。
+- 失效后会自动重新要求输入口令。
+
+如需更安全的企业级保护（阻断未认证 URL 直连），请在 Vercel 打开 `Project Protection / Password Protection`，以后可移除前端门禁逻辑。
+
 手机端只要访问你部署的域名（如 `https://learn.your-domain.com`）即可，站点是纯静态，不需要你的电脑在线。
 
-### 4) 一键流程（上线常用）
+### 5) 一键流程（上线常用）
 
 ```powershell
 # 生成并打包

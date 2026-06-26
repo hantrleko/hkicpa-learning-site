@@ -1,6 +1,7 @@
 const DATA = window.__HKICPA_STUDY_DATA__ || { resources: [], questions: [] };
 
 const viewSwitch = document.querySelectorAll(".view-tab");
+const labView = document.getElementById("lab-view");
 const resourcesView = document.getElementById("resources-view");
 const questionsView = document.getElementById("questions-view");
 const studyView = document.getElementById("study-view");
@@ -22,11 +23,15 @@ const questionAnswerFilter = document.getElementById("question-answer-filter");
 const questionStatsEl = document.getElementById("question-stats");
 const questionGrid = document.getElementById("question-grid");
 const practiceCard = document.getElementById("question-practice");
-const practiceRandomBtn = document.getElementById("random-question");
-const practiceNextBtn = document.getElementById("next-question");
+const questionSeqBtn = document.getElementById("question-seq");
+const questionRandomBtn = document.getElementById("question-random");
+const questionPrevBtn = document.getElementById("question-prev");
+const questionNextBtn = document.getElementById("question-next");
 
 const studyModuleSelect = document.getElementById("study-module");
 const studyAnswerFilter = document.getElementById("study-answer-filter");
+const studySectionSelect = document.getElementById("study-section");
+const studySectionPills = document.getElementById("study-section-pills");
 const studyStatsEl = document.getElementById("study-stats");
 const studyQuestionPractice = document.getElementById("study-question-practice");
 const studySummary = document.getElementById("study-summary");
@@ -42,18 +47,355 @@ const previewFrame = document.getElementById("preview-frame");
 const previewStatus = document.getElementById("preview-status");
 const previewClose = document.getElementById("close-preview");
 
+const labTaskTitle = document.getElementById("lab-task-title");
+const labContext = document.getElementById("lab-context");
+const labSidebarCase = document.getElementById("lab-sidebar-case");
+const labTaskTabs = document.getElementById("lab-task-tabs");
+const labTimerValue = document.getElementById("lab-timer-value");
+const labTimerToggle = document.getElementById("lab-timer-toggle");
+const labTimerReset = document.getElementById("lab-timer-reset");
+const labTaskMarks = document.getElementById("lab-task-marks");
+const labTaskTime = document.getElementById("lab-task-time");
+const labTaskStandard = document.getElementById("lab-task-standard");
+const labQuestionHeading = document.getElementById("lab-question-heading");
+const labQuestionPrompt = document.getElementById("lab-question-prompt");
+const labKeyFacts = document.getElementById("lab-key-facts");
+const labAnswerInput = document.getElementById("lab-answer-input");
+const labSaveNote = document.getElementById("lab-save-note");
+const labMarkComplete = document.getElementById("lab-mark-complete");
+const labSaveStatus = document.getElementById("lab-save-status");
+const labInsightTabs = document.querySelectorAll(".lab-insight-tab");
+const labInsightContent = document.getElementById("lab-insight-content");
+const labSidebarProgress = document.getElementById("lab-sidebar-progress");
+const labWeaknessFocus = document.getElementById("lab-weakness-focus");
+const labNextStep = document.getElementById("lab-next-step");
+
 const state = {
-  currentView: "resources",
+  currentView: "lab",
   filteredQuestionSeed: [],
-  currentPracticeIndex: 0,
+  practice: {
+    mode: "sequence",
+    order: [],
+    pointer: -1,
+  },
   study: {
     mode: "sequence",
     module: "M1",
+    section: "all",
     pool: [],
     order: [],
     pointer: -1,
   },
+  lab: {
+    activeTask: "q1",
+    activePanel: "answer",
+    timerSeconds: 50 * 60,
+    timerRunning: false,
+    timerId: null,
+    completed: new Set(),
+  },
 };
+
+const LAB_STORAGE_KEY = "hkicpa-m11-prototype-notes";
+const FALLBACK_LAB_SAMPLE = {
+  module: "M11",
+  session: "Jun 2025",
+  title: "M11 Financial Reporting",
+  tasks: [
+    {
+      id: "q1",
+      label: "Question 1",
+      title: "Disposal of subsidiary and NCI",
+      marks: 28,
+      minutes: 50,
+      standard: "HKFRS 10 / HKFRS 3 / HKAS 36",
+      prompt:
+        "Argon acquired 90% of Baron and later sold all shares. Calculate goodwill and NCI, then explain the group accounting impact of losing control, including OCI reserve treatment.",
+      facts: [
+        "Acquisition: 90% interest; NCI measured at proportionate share.",
+        "Fair value uplift on machinery: HK$2,500m, 10-year life.",
+        "Goodwill impairment review occurred before disposal.",
+        "Reserve I is a revaluation reserve; Reserve II relates to FVOCI debt instruments.",
+      ],
+      answer: [
+        "Goodwill starts from consideration plus NCI less fair value of identifiable net assets.",
+        "Goodwill impairment is allocated only to the parent when partial goodwill is used.",
+        "On loss of control, derecognise subsidiary assets, liabilities, goodwill and NCI, then recognise consideration and disposal gain/loss.",
+        "FVOCI debt reserve is reclassified to profit or loss; revaluation reserve is transferred directly to retained earnings.",
+      ],
+      examiner: [
+        "Many candidates selected HKFRS 5 just because the scenario mentioned disposal.",
+        "A common miss was ignoring the unamortised fair value adjustment on machinery.",
+        "The stronger answers separated reclassifiable OCI from non-reclassifiable OCI.",
+      ],
+      weakness: ["Loss of control", "Partial goodwill", "NCI movements", "OCI recycling"],
+      next: "复盘 HKFRS 10 loss of control，并补一题 OCI reserve treatment。",
+    },
+    {
+      id: "q2",
+      label: "Question 2",
+      title: "Derecognition and sale-and-leaseback",
+      marks: 16,
+      minutes: 29,
+      standard: "Conceptual Framework / HKFRS 16 / HKFRS 9",
+      prompt:
+        "Analyse whether Argon should derecognise a specialised machine sold and leased back, and trade receivables factored to a bank with compensation obligation.",
+      facts: [
+        "The transfer of the machine qualifies as a sale under HKFRS 15.",
+        "Argon retains 40% of the rights through the leaseback.",
+        "Receivables were legally transferred, but Argon compensates the bank if the customer fails to pay.",
+        "The director wants to keep assets on the statement of financial position to support borrowing.",
+      ],
+      answer: [
+        "Derecognition means removing an asset or liability that no longer meets recognition criteria.",
+        "For sale-and-leaseback, recognise only the gain related to rights transferred to the buyer-lessor.",
+        "For receivables, assess transfer of rights and substantially all risks and rewards under HKFRS 9.",
+        "Accounting treatment cannot be chosen to maintain a larger asset base.",
+      ],
+      examiner: [
+        "Many candidates wasted time proving a sale even though the case already stated it qualified.",
+        "Candidates often confused rights retained with rights transferred in the HKFRS 16 calculation.",
+        "Conceptual Framework derecognition was frequently replaced by asset-specific rules.",
+      ],
+      weakness: ["Derecognition principle", "Sale-and-leaseback", "Risk and reward transfer", "Exam requirement reading"],
+      next: "先写 Conceptual Framework 定义，再做 HKFRS 16/HKFRS 9 分析。",
+    },
+    {
+      id: "q3",
+      label: "Question 3",
+      title: "ESG disclosure linkage",
+      marks: 6,
+      minutes: 11,
+      standard: "ESG reporting",
+      prompt:
+        "Explain the ESG reporting implications for a listed industrial group with labour, safety, demographic and environmental concerns.",
+      facts: [
+        "Argon is listed on HKEX and prepares ESG reports.",
+        "The group relies on a highly skilled workforce in a traditionally male-dominated industry.",
+        "The disposal decision was partly driven by environmental impact concerns.",
+      ],
+      answer: [
+        "Identify material ESG topics and link disclosure to the facts in the case.",
+        "Discuss human capital, occupational health and safety, diversity, and environmental impacts.",
+        "Use case-specific disclosure language rather than generic ESG slogans.",
+      ],
+      examiner: [
+        "Performance was stronger on ESG than on complex consolidation topics.",
+        "High-scoring answers tied ESG comments directly to the case facts.",
+      ],
+      weakness: ["Case-specific ESG", "Materiality", "Disclosure wording"],
+      next: "把 ESG 答案写成 case facts + disclosure implication 的两列表。",
+    },
+  ],
+};
+
+const LAB_CASES = Array.isArray(window.__HKICPA_LAB_CASES__) ? window.__HKICPA_LAB_CASES__ : [];
+const LAB_SAMPLE = LAB_CASES.find((item) => item.id === "m11-jun-2025") || LAB_CASES[0] || FALLBACK_LAB_SAMPLE;
+
+function getStoredLabNotes() {
+  try {
+    return JSON.parse(localStorage.getItem(LAB_STORAGE_KEY) || "{}") || {};
+  } catch {
+    return {};
+  }
+}
+
+function setStoredLabNotes(notes) {
+  localStorage.setItem(LAB_STORAGE_KEY, JSON.stringify(notes || {}));
+}
+
+function formatTimer(seconds) {
+  const safeSeconds = Math.max(0, Number(seconds) || 0);
+  const minutes = Math.floor(safeSeconds / 60);
+  const rest = safeSeconds % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(rest).padStart(2, "0")}`;
+}
+
+function getActiveLabTask() {
+  return LAB_SAMPLE.tasks.find((task) => task.id === state.lab.activeTask) || LAB_SAMPLE.tasks[0];
+}
+
+function resetLabTimer(task = getActiveLabTask()) {
+  state.lab.timerRunning = false;
+  if (state.lab.timerId) {
+    clearInterval(state.lab.timerId);
+    state.lab.timerId = null;
+  }
+  state.lab.timerSeconds = Number(task.minutes || 50) * 60;
+  renderLabTimer();
+}
+
+function renderLabTimer() {
+  if (labTimerValue) {
+    labTimerValue.textContent = formatTimer(state.lab.timerSeconds);
+    labTimerValue.classList.toggle("is-low", state.lab.timerSeconds <= 5 * 60);
+  }
+  if (labTimerToggle) {
+    labTimerToggle.textContent = state.lab.timerRunning ? "Ⅱ" : "▶";
+  }
+}
+
+function toggleLabTimer() {
+  if (state.lab.timerRunning) {
+    state.lab.timerRunning = false;
+    clearInterval(state.lab.timerId);
+    state.lab.timerId = null;
+    renderLabTimer();
+    return;
+  }
+
+  state.lab.timerRunning = true;
+  state.lab.timerId = setInterval(() => {
+    state.lab.timerSeconds = Math.max(0, state.lab.timerSeconds - 1);
+    if (state.lab.timerSeconds === 0) {
+      state.lab.timerRunning = false;
+      clearInterval(state.lab.timerId);
+      state.lab.timerId = null;
+    }
+    renderLabTimer();
+  }, 1000);
+  renderLabTimer();
+}
+
+function createLabList(items, className = "lab-point-list") {
+  const list = document.createElement("ul");
+  list.className = className;
+  for (const item of items || []) {
+    const row = document.createElement("li");
+    row.textContent = item;
+    list.appendChild(row);
+  }
+  return list;
+}
+
+function renderLabInsights(task = getActiveLabTask()) {
+  if (!labInsightContent) return;
+
+  labInsightTabs.forEach((tab) => {
+    tab.classList.toggle("is-active", tab.dataset.labPanel === state.lab.activePanel);
+  });
+
+  labInsightContent.innerHTML = "";
+  const title = document.createElement("h3");
+  title.textContent =
+    state.lab.activePanel === "answer"
+      ? "标准答案骨架"
+      : state.lab.activePanel === "examiner"
+        ? "Panelists report 提醒"
+        : "错因标签";
+  labInsightContent.appendChild(title);
+
+  if (state.lab.activePanel === "weakness") {
+    const wrap = document.createElement("div");
+    wrap.className = "lab-tag-cloud";
+    for (const tag of task.weakness || []) {
+      const chip = document.createElement("span");
+      chip.textContent = tag;
+      wrap.appendChild(chip);
+    }
+    labInsightContent.appendChild(wrap);
+    return;
+  }
+
+  labInsightContent.appendChild(
+    createLabList(state.lab.activePanel === "answer" ? task.answer : task.examiner),
+  );
+}
+
+function renderLabProgress() {
+  const completed = state.lab.completed.size;
+  const total = LAB_SAMPLE.tasks.length;
+  if (labSidebarProgress) {
+    labSidebarProgress.textContent = `${completed}/${total}`;
+  }
+
+  const firstOpen = LAB_SAMPLE.tasks.find((task) => !state.lab.completed.has(task.id)) || getActiveLabTask();
+  if (labWeaknessFocus) {
+    labWeaknessFocus.textContent = (getActiveLabTask().weakness || [])[0] || "Case-specific analysis";
+  }
+  if (labNextStep) {
+    labNextStep.textContent = firstOpen.next || "继续下一题并复盘考官报告。";
+  }
+}
+
+function renderLabTaskTabs() {
+  if (!labTaskTabs) return;
+  labTaskTabs.innerHTML = "";
+  for (const task of LAB_SAMPLE.tasks) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `lab-task-tab ${task.id === state.lab.activeTask ? "is-active" : ""}`;
+    button.dataset.taskId = task.id;
+    button.innerHTML = `<strong>${task.label}</strong><span>${task.marks} marks · ${task.minutes} min</span>`;
+    if (state.lab.completed.has(task.id)) {
+      button.classList.add("is-complete");
+    }
+    button.addEventListener("click", () => {
+      state.lab.activeTask = task.id;
+      resetLabTimer(task);
+      renderLab();
+    });
+    labTaskTabs.appendChild(button);
+  }
+}
+
+function renderLab() {
+  if (!labView) return;
+  const task = getActiveLabTask();
+  const notes = getStoredLabNotes();
+
+  if (labContext) {
+    labContext.textContent = `${LAB_SAMPLE.module} ${LAB_SAMPLE.moduleTitle || LAB_SAMPLE.title} · ${LAB_SAMPLE.session}`;
+  }
+  if (labSidebarCase) {
+    labSidebarCase.textContent = `${LAB_SAMPLE.module} ${LAB_SAMPLE.session}`;
+  }
+  if (labTaskTitle) labTaskTitle.textContent = task.title;
+  if (labTaskMarks) labTaskMarks.textContent = `${task.marks} marks`;
+  if (labTaskTime) labTaskTime.textContent = `${task.minutes} minutes`;
+  if (labTaskStandard) {
+    const sourcePage = task.sourcePages?.question ? ` · Q p.${task.sourcePages.question}` : "";
+    labTaskStandard.textContent = `${task.standard}${sourcePage}`;
+  }
+  if (labQuestionHeading) labQuestionHeading.textContent = task.label;
+  if (labQuestionPrompt) labQuestionPrompt.textContent = task.prompt;
+  if (labAnswerInput) labAnswerInput.value = notes[task.id] || "";
+  if (labSaveStatus) labSaveStatus.textContent = "";
+  if (labMarkComplete) {
+    labMarkComplete.textContent = state.lab.completed.has(task.id) ? "已完成" : "标记完成";
+  }
+
+  if (labKeyFacts) {
+    labKeyFacts.innerHTML = "";
+    for (const fact of task.facts || []) {
+      const item = document.createElement("div");
+      item.textContent = fact;
+      labKeyFacts.appendChild(item);
+    }
+  }
+
+  renderLabTaskTabs();
+  renderLabTimer();
+  renderLabInsights(task);
+  renderLabProgress();
+}
+
+function saveLabNote() {
+  const task = getActiveLabTask();
+  const notes = getStoredLabNotes();
+  notes[task.id] = labAnswerInput?.value || "";
+  setStoredLabNotes(notes);
+  if (labSaveStatus) {
+    labSaveStatus.textContent = "已保存到本机浏览器";
+  }
+}
+
+function markLabComplete() {
+  const task = getActiveLabTask();
+  state.lab.completed.add(task.id);
+  saveLabNote();
+  renderLab();
+}
 
 function formatDate(value) {
   if (!value) return "未知";
@@ -109,6 +451,96 @@ function disableAction(action, title) {
 
 function getFileName(item) {
   return item.name || item.path.split("/").pop();
+}
+
+function getQuestionSectionKey(question) {
+  const base = question || {};
+  if (base.groupKey) {
+    return String(base.groupKey);
+  }
+  const category = String(base.category || "未知");
+  const module = String(base.module || "未分类");
+  const year = String(base.year || "未标注");
+  const session = String(base.session || "未标注");
+  return `${category}|${module}|${year}|${session}`;
+}
+
+function getQuestionSectionLabel(question) {
+  const key = getQuestionSectionKey(question);
+  const parts = key.split("|");
+  if (parts.length >= 4) {
+    const year = parts[2] || "未知";
+    const session = parts[3] || "未标注";
+    return `${year} ${session}`;
+  }
+  if (question?.year || question?.session) {
+    return `${question.year || "未知"} ${question.session || "未标注"}`;
+  }
+  return "未标注场次";
+}
+
+function renderStudySectionPills(buckets, selectedValue = "all") {
+  if (!studySectionPills) {
+    return;
+  }
+
+  const total = Array.isArray(buckets) ? buckets.reduce((sum, item) => sum + (Number(item.count) || 0), 0) : 0;
+  const normalizedSelected = selectedValue || "all";
+  studySectionPills.innerHTML = "";
+
+  const allPill = document.createElement("button");
+  allPill.type = "button";
+  allPill.className = `study-section-pill ${normalizedSelected === "all" ? "is-active" : ""}`;
+  allPill.textContent = `全部场次 (${total})`;
+  allPill.dataset.section = "all";
+  if (total === 0) {
+    allPill.disabled = true;
+  }
+  allPill.addEventListener("click", () => {
+    if (studySectionSelect) {
+      studySectionSelect.value = "all";
+    }
+    renderStudyMode();
+  });
+  studySectionPills.appendChild(allPill);
+
+  if (!Array.isArray(buckets) || !buckets.length) {
+    return;
+  }
+
+  for (const item of buckets) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `study-section-pill ${normalizedSelected === item.key ? "is-active" : ""}`;
+    button.textContent = `${item.label} (${item.count})`;
+    button.dataset.section = item.key;
+    button.disabled = item.count <= 0;
+    button.addEventListener("click", () => {
+      if (studySectionSelect) {
+        studySectionSelect.value = item.key;
+      }
+      renderStudyMode();
+    });
+    studySectionPills.appendChild(button);
+  }
+}
+
+function compareSectionKey(left, right) {
+  const leftParts = String(left).split("|");
+  const rightParts = String(right).split("|");
+  const leftYear = Number(leftParts[2] || 0);
+  const rightYear = Number(rightParts[2] || 0);
+
+  if (leftYear !== rightYear) {
+    return leftYear - rightYear;
+  }
+
+  const leftSession = String(leftParts[3] || "").toLowerCase();
+  const rightSession = String(rightParts[3] || "").toLowerCase();
+  if (leftSession !== rightSession) {
+    return leftSession.localeCompare(rightSession);
+  }
+  return String(left).localeCompare(String(right));
 }
 
 function uniqueModules(resources) {
@@ -257,6 +689,163 @@ function formatAnswerLine(text) {
   return String(text || "")
     .replace(/\r/g, "\n")
     .trim();
+}
+
+function createChip(text, tone = "default") {
+  const chip = document.createElement("span");
+  chip.className = `q-chip q-chip-${tone}`;
+  chip.textContent = text;
+  return chip;
+}
+
+function inferQuestionType(question) {
+  const prompt = String(question?.prompt || question?.full || "").toLowerCase();
+  const options = Array.isArray(question?.options) ? question.options : [];
+  if (options.length > 0) {
+    return "选择题 / 多小问";
+  }
+  if (/\(a\)|\(b\)|\(c\)|\(d\)|\(e\)|\b[a-d]\)|\[a\]|\[b\]|\[c\]/i.test(prompt) || /\b[a-d]\./.test(prompt)) {
+    return "分问 / 选项题";
+  }
+  if (prompt.includes("required") && prompt.includes("answer")) {
+    return "按要求作答";
+  }
+  if (prompt.includes("prepare") || prompt.includes("prepare a") || prompt.includes("prepare the")) {
+    return "报表类题目";
+  }
+  return "书面题 / 计算题";
+}
+
+function buildQuestionGuide(question) {
+  const prompt = String(question?.prompt || question?.full || "").toLowerCase();
+  const type = inferQuestionType(question);
+  const lines = [];
+  lines.push(`题型判断：${type}`);
+  lines.push("学习动作：先抓题干条件，再按顺序落盘，最后再核对结果是否符合题意。");
+
+  if (prompt.includes("required") || prompt.includes("required:")) {
+    lines.push("题目关键词提示：建议按“步骤1→步骤2→结论”结构作答，避免漏条件。");
+  }
+  if (prompt.includes("prepare")) {
+    lines.push("建议先做框架，再做计算，最后补齐会计分录/表内金额关系。");
+  }
+  if (question.sourceMode === "ocr") {
+    lines.push("当前题干来自 OCR，建议结合原题页核验关键数字及符号。");
+  }
+
+  if (!lines.length) {
+    lines.push("先确认题目要求，再逐项计算；题目较长时先定位子问题。");
+  }
+  return lines;
+}
+
+function createQuestionHeader(question) {
+  const header = document.createElement("header");
+  header.className = "question-card-head";
+
+  const titleWrap = document.createElement("div");
+
+  const title = document.createElement("h3");
+  title.className = "q-title";
+  title.textContent = `题号 ${question.number || "未标注"}`;
+
+  const titleMeta = document.createElement("p");
+  titleMeta.className = "q-title-meta";
+  titleMeta.textContent = `${String(question.module || "未分类").toUpperCase()} ${question.category || ""}`.trim();
+
+  const subtitle = document.createElement("p");
+  subtitle.className = "q-subtitle";
+  subtitle.textContent = `${question.year || "年份未知"} · ${question.session || "场次未知"}`;
+
+  const chips = document.createElement("div");
+  chips.className = "q-chip-row";
+  chips.appendChild(createChip(question.hasAnswer ? "有参考答案" : "无参考答案", question.hasAnswer ? "ok" : "warning"));
+  chips.appendChild(createChip(`来源: ${normalizeQuestionMode(question.sourceMode)}`, "source"));
+  chips.appendChild(createChip(`第 ${Number(question.sourcePage) > 0 ? question.sourcePage : "N"} 页`, "source"));
+
+  titleWrap.appendChild(title);
+  titleWrap.appendChild(titleMeta);
+  titleWrap.appendChild(subtitle);
+  header.appendChild(titleWrap);
+  header.appendChild(chips);
+  return header;
+}
+
+function createQuestionBody(question) {
+  const body = document.createElement("section");
+  body.className = "q-body";
+
+  const guideBlock = document.createElement("section");
+  guideBlock.className = "q-block q-block-guide";
+  const guideTitle = document.createElement("p");
+  guideTitle.className = "q-block-title";
+  guideTitle.textContent = "学习导读";
+  const guideList = document.createElement("ul");
+  guideList.className = "q-guide-list";
+  for (const item of buildQuestionGuide(question)) {
+    const guideItem = document.createElement("li");
+    guideItem.textContent = item;
+    guideList.appendChild(guideItem);
+  }
+  guideBlock.appendChild(guideTitle);
+  guideBlock.appendChild(guideList);
+
+  const stemBlock = document.createElement("section");
+  stemBlock.className = "q-block";
+  const stemBlockTitle = document.createElement("p");
+  stemBlockTitle.className = "q-block-title";
+  stemBlockTitle.textContent = "题干";
+  const stem = document.createElement("div");
+  stem.className = "q-stem";
+  stem.textContent = formatAnswerLine(question.prompt || question.full || "");
+  stemBlock.appendChild(stemBlockTitle);
+  stemBlock.appendChild(stem);
+
+  const sourceMeta = document.createElement("p");
+  sourceMeta.className = "q-source-snippet";
+  sourceMeta.textContent = question.sourceMatch
+    ? `定位片段：${question.sourceMatch.trim()}`
+    : "定位片段：未命中（请结合原题页）";
+
+  body.appendChild(guideBlock);
+  body.appendChild(stemBlock);
+  body.appendChild(sourceMeta);
+
+  const options = question.options || [];
+  if (options.length) {
+    const optionBlock = document.createElement("section");
+    optionBlock.className = "q-block";
+
+    const optionTitle = document.createElement("p");
+    optionTitle.className = "q-block-title";
+    optionTitle.textContent = "选项";
+
+    const optionList = document.createElement("div");
+    optionList.className = "q-options";
+    let index = 0;
+    for (const option of options) {
+      index += 1;
+      const row = document.createElement("div");
+      row.className = "q-option";
+
+      const tag = document.createElement("span");
+      tag.className = "q-option-tag";
+      tag.textContent = `${String.fromCharCode(64 + index)}.`;
+
+      const text = document.createElement("span");
+      text.textContent = option;
+
+      row.appendChild(tag);
+      row.appendChild(text);
+      optionList.appendChild(row);
+    }
+
+    optionBlock.appendChild(optionTitle);
+    optionBlock.appendChild(optionList);
+    body.appendChild(optionBlock);
+  }
+
+  return body;
 }
 
 function normalizeQuestionMode(mode) {
@@ -410,6 +999,8 @@ function hidePreview() {
 
 function setTab(view) {
   state.currentView = view;
+  document.body.dataset.view = view;
+  labView?.classList.toggle("hidden", view !== "lab");
   resourcesView.classList.toggle("hidden", view !== "resources");
   questionsView.classList.toggle("hidden", view !== "questions");
   studyView.classList.toggle("hidden", view !== "study");
@@ -423,7 +1014,12 @@ function setTab(view) {
   viewSwitch.forEach((tab) => {
     tab.classList.toggle("active", tab.dataset.view === view);
   });
-  if (view === "questions") {
+  if (view === "lab") {
+    renderLab();
+    practiceCard.classList.add("hidden");
+    practiceCard.innerHTML = "";
+    studyQuestionPractice?.classList.add("hidden");
+  } else if (view === "questions") {
     renderQuestions();
   } else if (view === "study") {
     renderStudyMode();
@@ -620,6 +1216,90 @@ function getStudyOrder(pool, mode) {
   });
 }
 
+function getQuestionPracticeOrder(pool, mode) {
+  return getStudyOrder(pool, mode);
+}
+
+function setupQuestionPracticePool() {
+  const filtered = getFilteredQuestions();
+  state.filteredQuestionSeed = filtered;
+  state.practice.order = [];
+  state.practice.pointer = -1;
+  state.practice.mode = "sequence";
+  questionStatsEl.textContent = `当前可用 ${filtered.length} 道题`;
+  questionSeqBtn.disabled = !filtered.length;
+  questionRandomBtn.disabled = !filtered.length;
+  questionPrevBtn.disabled = !filtered.length;
+  questionNextBtn.disabled = !filtered.length;
+  return filtered;
+}
+
+function setQuestionPracticeByPointer(pointer, options = {}) {
+  if (!practiceCard || !state.practice.order.length) {
+    return;
+  }
+
+  const total = state.practice.order.length;
+  const safePointer = ((pointer % total) + total) % total;
+  state.practice.pointer = safePointer;
+  const question = state.practice.order[safePointer];
+
+  const title = document.createElement("div");
+  title.className = "question-practice-title";
+  title.textContent = state.practice.mode === "random" ? "随机练习中" : "顺序练习中";
+
+  const node = createQuestionNode(question);
+  node.classList.add("practice-active");
+
+  practiceCard.classList.remove("hidden");
+  practiceCard.innerHTML = "";
+  practiceCard.appendChild(title);
+  practiceCard.appendChild(node);
+
+  questionStatsEl.textContent = `练习进度 ${safePointer + 1}/${total}`;
+
+  if (!options.silent) {
+    practiceCard.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+}
+
+function startQuestionPractice(mode = "sequence") {
+  const pool = setupQuestionPracticePool();
+  if (!pool.length) {
+    practiceCard.classList.add("hidden");
+    practiceCard.innerHTML = "";
+    questionStatsEl.textContent = `当前暂无可练习题目`;
+    return;
+  }
+
+  state.practice.mode = mode;
+  state.practice.order = getQuestionPracticeOrder(pool, mode);
+  const startIndex = 0;
+  setQuestionPracticeByPointer(startIndex);
+}
+
+function nextQuestionPractice() {
+  if (!state.practice.order.length) {
+    return;
+  }
+  if (state.practice.order.length <= 1) {
+    return;
+  }
+  const next = state.practice.pointer + 1;
+  setQuestionPracticeByPointer(next);
+}
+
+function prevQuestionPractice() {
+  if (!state.practice.order.length) {
+    return;
+  }
+  if (state.practice.order.length <= 1) {
+    return;
+  }
+  const prev = state.practice.pointer - 1;
+  setQuestionPracticeByPointer(prev);
+}
+
 function renderStudySummary(module, pool) {
   const insights = gatherStudyInsights(pool);
   const hasData = Boolean(pool && pool.length);
@@ -627,6 +1307,8 @@ function renderStudySummary(module, pool) {
     studySummary.innerHTML = `<div class="empty">该章节暂无可学习题目。</div>`;
     return;
   }
+
+  const sectionText = state.study.section && state.study.section !== "all" ? `（当前场次：${getQuestionSectionLabel({ groupKey: state.study.section })}）` : "（全部场次）";
 
   const yearRows = insights.byYear
     .map((item) => `${item.year || "未标注"}: ${item.count}题`)
@@ -640,7 +1322,7 @@ function renderStudySummary(module, pool) {
 
   studySummary.innerHTML = `
     <section class="study-summary-panel">
-      <h3>${formatModuleLabel(module)} 学习加练习总览</h3>
+      <h3>${formatModuleLabel(module)} 学习加练习总览 ${sectionText}</h3>
       <p>已提炼 ${insights.sentenceCounts.total} 道题，${insights.sentenceCounts.withAnswer} 道有答案。</p>
       <p>年份分布：${yearRows}</p>
       <p>场次分布：${sessionRows}</p>
@@ -652,8 +1334,19 @@ function renderStudySummary(module, pool) {
 function setupStudyPool() {
   const module = studyModuleSelect ? studyModuleSelect.value : state.study.module;
   const answerFilter = studyAnswerFilter ? studyAnswerFilter.value : "all";
-  const filtered = parseModuleQuestions(module, answerFilter);
+  const selectedSection = studySectionSelect ? studySectionSelect.value : "all";
+  const sectionBuckets = buildSectionBuckets(module, answerFilter);
+
+  if (studySectionSelect) {
+    populateStudySectionOptions(studySectionSelect, sectionBuckets, selectedSection);
+  }
+  renderStudySectionPills(sectionBuckets, studySectionSelect ? studySectionSelect.value : selectedSection);
+
+  const filtered = parseModuleQuestions(module, answerFilter).filter((question) =>
+    selectedSection === "all" ? true : getQuestionSectionKey(question) === selectedSection,
+  );
   state.study.module = module;
+  state.study.section = selectedSection;
   state.study.pool = filtered;
   state.study.mode = "sequence";
   state.study.order = [];
@@ -668,6 +1361,47 @@ function setupStudyPool() {
   return filtered;
 }
 
+function buildSectionBuckets(module, answerFilterValue = "all") {
+  const pool = parseModuleQuestions(module, answerFilterValue);
+  const buckets = new Map();
+
+  for (const question of pool) {
+    const key = getQuestionSectionKey(question);
+    const label = getQuestionSectionLabel(question);
+    if (!buckets.has(key)) {
+      buckets.set(key, {
+        key,
+        label,
+        count: 0,
+        withAnswer: 0,
+      });
+    }
+    const bucket = buckets.get(key);
+    bucket.count += 1;
+    if (question.hasAnswer) {
+      bucket.withAnswer += 1;
+    }
+  }
+
+  return [...buckets.values()].sort((a, b) => compareSectionKey(a.key, b.key));
+}
+
+function populateStudySectionOptions(selectElement, buckets, selectedValue) {
+  if (!selectElement) {
+    return;
+  }
+
+  const options = [
+    `<option value="all">全部场次</option>`,
+    ...buckets.map((item) => `<option value="${item.key}">${item.label}（${item.count}题）</option>`),
+  ];
+  selectElement.innerHTML = options.join("");
+
+  const defaultValue = selectElement.querySelector(`option[value="${selectedValue}"]`) ? selectedValue : "all";
+  selectElement.value = defaultValue;
+  state.study.section = defaultValue;
+}
+
 function setStudyQuestionByPointer(pointer, options = {}) {
   if (!studyQuestionPractice || !state.study.order.length) {
     return;
@@ -677,13 +1411,14 @@ function setStudyQuestionByPointer(pointer, options = {}) {
   const safePointer = ((pointer % total) + total) % total;
   state.study.pointer = safePointer;
   const question = state.study.order[safePointer];
+  const sectionLabel = state.study.section === "all" ? "全部场次" : getQuestionSectionLabel(question);
 
   const node = createQuestionNode(question);
   node.classList.add("practice-active");
   studyQuestionPractice.classList.remove("hidden");
   studyQuestionPractice.innerHTML = "";
   studyQuestionPractice.appendChild(node);
-  studyStatsEl.textContent = `章节 ${formatModuleLabel(state.study.module)} 进度 ${safePointer + 1}/${total}`;
+  studyStatsEl.textContent = `章节 ${formatModuleLabel(state.study.module)} · ${sectionLabel} · 进度 ${safePointer + 1}/${total}`;
 
   if (!options.silent) {
     studyQuestionPractice.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -759,62 +1494,36 @@ function createQuestionNode(question) {
   const item = document.createElement("article");
   item.className = "question-card";
 
-  const head = document.createElement("header");
-  head.className = "question-head";
-  const title = document.createElement("div");
-  const qText = document.createElement("h3");
-  qText.textContent = `${question.module} ${question.category === "11-14" ? "11-14" : ""} 题号 ${question.number}（${question.year || "年份未知"} ${question.session || "场次未知"}）`;
-  const tags = document.createElement("div");
-  tags.className = "chip-row";
-  tags.innerHTML = `
-    <span class="chip">${question.hasAnswer ? "有参考答案" : "无参考答案"}</span>
-    <span class="chip">来源页码：第 ${question.sourcePage || "N"} 页</span>
-    <span class="chip">解析来源：${question.sourceMode === "ocr" ? "OCR" : "文本提取"}</span>
-  `;
-  title.appendChild(qText);
-  title.appendChild(tags);
-  head.appendChild(title);
-  const sourceMeta = document.createElement("p");
-  sourceMeta.className = "question-source-match";
-  sourceMeta.textContent = `定位片段：${(question.sourceMatch || "未命中").trim()}`;
-
-  const prompt = document.createElement("pre");
-  prompt.className = "question-text";
-  prompt.textContent = formatAnswerLine(question.prompt || question.full || "");
-
-  const options = document.createElement("div");
-  options.className = "options";
-  if ((question.options || []).length) {
-    const ol = document.createElement("ol");
-    for (const opt of question.options) {
-      const li = document.createElement("li");
-      li.textContent = opt;
-      ol.appendChild(li);
-    }
-    options.appendChild(ol);
-  }
+  const body = createQuestionBody(question);
 
   const answerWrap = document.createElement("section");
   answerWrap.className = "answer-wrap hidden";
+  answerWrap.setAttribute("aria-live", "polite");
 
-  const answerLabel = document.createElement("div");
-  answerLabel.className = "answer-label";
-  answerLabel.textContent = "答案解析（含建议答案）";
+  const answerLabel = document.createElement("p");
+  answerLabel.className = "q-block-title q-answer-title";
+  answerLabel.textContent = "解析 / 答案";
 
-  const answer = document.createElement("pre");
-  answer.className = "answer-text";
-  answer.textContent = formatAnswerLine(question.answer || "这题暂无提取到可显示答案，建议先看原文件解析。");
-
+  const answerText = document.createElement("div");
+  answerText.className = "answer-text";
+  answerText.textContent = formatAnswerLine(
+    question.answer || "这题暂无可显示答案，建议先看原题页。建议结合原题页中的官方答案作复盘。",
+  );
   answerWrap.appendChild(answerLabel);
-  answerWrap.appendChild(answer);
+  answerWrap.appendChild(answerText);
 
   const actionRow = document.createElement("div");
-  actionRow.className = "item-actions";
+  actionRow.className = "question-action-row question-toolbar";
 
   const reveal = document.createElement("button");
   reveal.type = "button";
   reveal.className = "btn answer-btn";
-  reveal.textContent = "查看答案";
+  const hasAnswer = Boolean(question.answer && String(question.answer).trim());
+  reveal.textContent = hasAnswer ? "查看答案" : "暂无解析";
+  reveal.setAttribute("aria-expanded", "false");
+  if (!hasAnswer) {
+    reveal.disabled = true;
+  }
 
   const preview = document.createElement("button");
   preview.type = "button";
@@ -845,19 +1554,45 @@ function createQuestionNode(question) {
     disableAction(openSource, "原题文件不存在");
   }
 
-  reveal.addEventListener("click", () => {
-    const shouldShow = answerWrap.classList.toggle("hidden");
-    reveal.textContent = shouldShow ? "查看答案" : "隐藏答案";
+  if (hasAnswer) {
+    reveal.addEventListener("click", () => {
+      const isHidden = answerWrap.classList.toggle("hidden");
+      reveal.textContent = isHidden ? "查看答案" : "隐藏答案";
+      reveal.setAttribute("aria-expanded", String(!isHidden));
+    });
+  }
+
+  const copyTextBtn = document.createElement("button");
+  copyTextBtn.type = "button";
+  copyTextBtn.className = "btn folder-btn";
+  copyTextBtn.textContent = "复制题干";
+  copyTextBtn.addEventListener("click", async () => {
+    const payload = [
+      `${String(question.module || "未分类").toUpperCase()} ${question.number || "未标注"} · ${question.year || "年份未知"} ${question.session || "场次未知"}`,
+      "",
+      String(question.prompt || question.full || ""),
+    ].join("\n");
+    try {
+      await navigator.clipboard.writeText(payload);
+      copyTextBtn.textContent = "已复制";
+      setTimeout(() => {
+        copyTextBtn.textContent = "复制题干";
+      }, 900);
+    } catch (error) {
+      copyTextBtn.textContent = "复制失败";
+      setTimeout(() => {
+        copyTextBtn.textContent = "复制题干";
+      }, 900);
+    }
   });
 
   actionRow.appendChild(reveal);
   actionRow.appendChild(preview);
   actionRow.appendChild(openSource);
+  actionRow.appendChild(copyTextBtn);
 
-  item.appendChild(head);
-  item.appendChild(sourceMeta);
-  item.appendChild(prompt);
-  item.appendChild(options);
+  item.appendChild(createQuestionHeader(question));
+  item.appendChild(body);
   item.appendChild(answerWrap);
   item.appendChild(actionRow);
   return item;
@@ -869,8 +1604,14 @@ function renderQuestions() {
   questionStatsEl.textContent = `共 ${filtered.length} 道题`;
 
   practiceCard.innerHTML = "";
+  if (filtered.length === 0) {
+    questionStatsEl.textContent = `共 0 道题`;
+  }
   questionGrid.innerHTML = "";
-  practiceNextBtn.disabled = !filtered.length;
+  questionSeqBtn.disabled = !filtered.length;
+  questionRandomBtn.disabled = !filtered.length;
+  questionPrevBtn.disabled = !filtered.length;
+  questionNextBtn.disabled = !filtered.length;
 
   if (!filtered.length) {
     questionGrid.innerHTML = '<div class="empty">没有找到匹配题目，请调整筛选条件。</div>';
@@ -882,27 +1623,8 @@ function renderQuestions() {
   }
 }
 
-function showPracticeQuestion() {
-  const pool = state.filteredQuestionSeed.length ? state.filteredQuestionSeed : getFilteredQuestions();
-  if (!pool.length) {
-    practiceCard.innerHTML = "";
-    return;
-  }
-
-  const nextIndex = Math.floor(Math.random() * pool.length);
-  state.currentPracticeIndex = nextIndex;
-  const question = pool[nextIndex];
-
-  const title = document.createElement("div");
-  title.className = "question-practice-title";
-  title.textContent = "随机题目";
-
-  const node = createQuestionNode(question);
-  node.classList.add("practice-active");
-  practiceCard.classList.remove("hidden");
-  practiceCard.innerHTML = "";
-  practiceCard.appendChild(title);
-  practiceCard.appendChild(node);
+function startPracticeQuestionRandom() {
+  startQuestionPractice("random");
 }
 
 function initializeViewState() {
@@ -910,6 +1632,8 @@ function initializeViewState() {
   if (!hasData) {
     moduleGrid.innerHTML = '<div class="empty">未检测到数据，请先运行扫描脚本（见 scripts/build-study-index.js）。</div>';
     questionGrid.innerHTML = '<div class="empty">未检测到题库数据，请先运行扫描脚本（见 scripts/build-study-index.js）。</div>';
+    renderLab();
+    setTab("lab");
     return;
   }
 
@@ -924,7 +1648,8 @@ function initializeViewState() {
       studyModuleSelect.value = defaultStudyModule;
     }
   }
-  setTab("resources");
+  renderLab();
+  setTab("lab");
 }
 
 function bindEvents() {
@@ -946,16 +1671,33 @@ function bindEvents() {
   resourceModuleSelect?.addEventListener("change", renderResources);
   studyModuleSelect?.addEventListener("change", () => {
     state.study.module = studyModuleSelect.value;
+    if (studySectionSelect) {
+      studySectionSelect.value = "all";
+      state.study.section = "all";
+    }
     renderStudyMode();
   });
   studyAnswerFilter?.addEventListener("change", renderStudyMode);
+  studySectionSelect?.addEventListener("change", renderStudyMode);
 
-  practiceRandomBtn?.addEventListener("click", showPracticeQuestion);
-  practiceNextBtn?.addEventListener("click", showPracticeQuestion);
+  questionSeqBtn?.addEventListener("click", () => startQuestionPractice("sequence"));
+  questionRandomBtn?.addEventListener("click", startPracticeQuestionRandom);
+  questionPrevBtn?.addEventListener("click", prevQuestionPractice);
+  questionNextBtn?.addEventListener("click", nextQuestionPractice);
   studySeqBtn?.addEventListener("click", () => startStudy("sequence"));
   studyRandomBtn?.addEventListener("click", () => startStudy("random"));
   studyPrevBtn?.addEventListener("click", goPrevStudyQuestion);
   studyNextBtn?.addEventListener("click", goNextStudyQuestion);
+  labTimerToggle?.addEventListener("click", toggleLabTimer);
+  labTimerReset?.addEventListener("click", () => resetLabTimer());
+  labSaveNote?.addEventListener("click", saveLabNote);
+  labMarkComplete?.addEventListener("click", markLabComplete);
+  labInsightTabs.forEach((tab) => {
+    tab.addEventListener("click", () => {
+      state.lab.activePanel = tab.dataset.labPanel || "answer";
+      renderLabInsights();
+    });
+  });
 
   previewFrame?.addEventListener("load", () => {
     if (!previewModal?.classList.contains("open")) {
